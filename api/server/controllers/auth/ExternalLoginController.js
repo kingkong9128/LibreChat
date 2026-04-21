@@ -3,8 +3,8 @@ const { logger } = require('@librechat/data-schemas');
 const { setAuthTokens, registerUser } = require('~/server/services/AuthService');
 const { findUser, getUserById, updateUser } = require('~/models');
 
-const ACCOUNTEX_JWT_SECRET = process.env.ACCOUNTEX_JWT_SECRET || 'accountexai-jwt-secret-32chars-minimum';
-const ACCOUNTEX_JWT_ISSUER = process.env.ACCOUNTEX_JWT_ISSUER || 'https://accountexai-api-production.up.railway.app';
+const ACCOUNTEX_JWT_SECRET = process.env.JWT_SECRET || 'accountexai-jwt-secret-32chars-minimum';
+const ACCOUNTEX_JWT_ISSUER = process.env.ACCOUNTEX_JWT_ISSUER || process.env.NEXTAUTH_URL || 'https://accountexai-api-production.up.railway.app';
 
 /**
  * External login controller for AccountexAI integration.
@@ -39,37 +39,34 @@ const externalLoginController = async (req, res) => {
     let user = await findUser({ email }, 'email _id username name provider role');
 
     if (!user) {
-      // Create new user with 'external' provider
       logger.info(`[externalLoginController] Creating new LibreChat user for: ${email}`);
 
-      // Use registerUser but without password validation
       const newUserData = {
         email,
         name: name || email.split('@')[0],
         username: email.split('@')[0],
         provider: 'external',
-        password: '', // No password - auth via external JWT only
+        password: '',
       };
 
-      // We need to create the user directly since registerUser has validation
-      const mongoose = require('mongoose');
       const { User } = require('@librechat/data-schemas');
+      const mongoose = require('mongoose');
 
-      const existingUser = await User.findOne({ email });
+      const existingUser = await findUser({ email });
       if (existingUser) {
         user = existingUser;
       } else {
-        const isFirstRegisteredUser = (await User.countDocuments({})) === 0;
+        const isFirstRegisteredUser = (await mongoose.model('User').countDocuments({})) === 0;
         const salt = require('bcryptjs').genSaltSync(10);
 
-        const createdUser = await User.create({
+        const createdUser = await mongoose.model('User').create({
           email,
           name: newUserData.name,
           username: newUserData.username,
           provider: 'external',
           password: require('bcryptjs').hashSync(newUserData.password, salt),
           role: isFirstRegisteredUser ? 'admin' : 'user',
-          emailVerified: true, // External auth means email is already verified
+          emailVerified: true,
         });
 
         user = await getUserById(createdUser._id);
