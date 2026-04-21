@@ -3,8 +3,8 @@ const { logger } = require('@librechat/data-schemas');
 const { setAuthTokens, registerUser } = require('~/server/services/AuthService');
 const { findUser, getUserById, updateUser } = require('~/models');
 
-const ACCOUNTex_JWT_SECRET = process.env.NEXTAUTH_SECRET || 'accountexai-super-secret-jwt-key-change-in-production-32chars';
-const ACCOUNTex_JWT_ISSUER = process.env.NEXTAUTH_URL || 'https://accountexai-frontend.vercel.app';
+const ACCOUNTEX_JWT_SECRET = process.env.ACCOUNTEX_JWT_SECRET || 'accountexai-jwt-secret-32chars-minimum';
+const ACCOUNTEX_JWT_ISSUER = process.env.ACCOUNTEX_JWT_ISSUER || 'https://accountexai-api-production.up.railway.app';
 
 /**
  * External login controller for AccountexAI integration.
@@ -21,8 +21,8 @@ const externalLoginController = async (req, res) => {
     // Verify the AccountexAI JWT
     let payload;
     try {
-      payload = jwt.verify(externalToken, ACCOUNTex_JWT_SECRET, {
-        issuer: ACCOUNTex_JWT_ISSUER,
+      payload = jwt.verify(externalToken, ACCOUNTEX_JWT_SECRET, {
+        issuer: ACCOUNTEX_JWT_ISSUER,
       });
     } catch (err) {
       logger.error('[externalLoginController] Invalid external token:', err.message);
