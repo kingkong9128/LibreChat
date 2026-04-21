@@ -228,10 +228,20 @@ if (cluster.isMaster) {
 
     /** Load index.html for SPA serving */
     const indexPath = path.join(appConfig.paths.dist, 'index.html');
-    let indexHTML = fs.readFileSync(indexPath, 'utf8');
+    let indexHTML;
+    try {
+      indexHTML = fs.readFileSync(indexPath, 'utf8');
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        logger.warn(`Client dist not found at ${indexPath} — skipping frontend rendering (API-only mode)`);
+        indexHTML = null;
+      } else {
+        throw err;
+      }
+    }
 
     /** Support serving in subdirectory if DOMAIN_CLIENT is set */
-    if (process.env.DOMAIN_CLIENT) {
+    if (indexHTML && process.env.DOMAIN_CLIENT) {
       const clientUrl = new URL(process.env.DOMAIN_CLIENT);
       const baseHref = clientUrl.pathname.endsWith('/')
         ? clientUrl.pathname
@@ -332,6 +342,9 @@ if (cluster.isMaster) {
 
     /** SPA fallback - serve index.html for all unmatched routes */
     app.use((req, res) => {
+      if (!indexHTML) {
+        return res.status(404).json({ error: 'Frontend not available (API-only mode)' });
+      }
       res.set({
         'Cache-Control': process.env.INDEX_CACHE_CONTROL || 'no-cache, no-store, must-revalidate',
         Pragma: process.env.INDEX_PRAGMA || 'no-cache',
