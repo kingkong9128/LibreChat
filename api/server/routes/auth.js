@@ -17,6 +17,7 @@ const {
 const { verify2FAWithTempToken } = require('~/server/controllers/auth/TwoFactorAuthController');
 const { logoutController } = require('~/server/controllers/auth/LogoutController');
 const { loginController } = require('~/server/controllers/auth/LoginController');
+const { externalLoginController } = require('~/server/controllers/auth/ExternalLoginController');
 const { findBalanceByUser, upsertBalanceFields } = require('~/models');
 const { getAppConfig } = require('~/server/services/Config');
 const middleware = require('~/server/middleware');
@@ -32,6 +33,7 @@ const router = express.Router();
 const ldapAuth = !!process.env.LDAP_URL && !!process.env.LDAP_USER_SEARCH_BASE;
 //Local
 router.post('/logout', middleware.requireJwtAuth, logoutController);
+router.post('/login/external', externalLoginController);
 router.post(
   '/login',
   middleware.logHeaders,
