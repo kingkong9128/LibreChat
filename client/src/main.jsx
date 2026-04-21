@@ -11,6 +11,15 @@ import 'katex/dist/contrib/copy-tex.js';
 const container = document.getElementById('root');
 const root = createRoot(container);
 
+window.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SET_LIBRECHAT_TOKEN') {
+    const token = event.data.token;
+    if (token) {
+      (window as typeof window & { __accountexLibreChatToken?: string }).__accountexLibreChatToken = token;
+    }
+  }
+});
+
 root.render(
   <ApiErrorBoundaryProvider>
     <App />

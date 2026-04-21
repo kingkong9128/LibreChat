@@ -165,6 +165,28 @@ const AuthContextProvider = ({
     [logoutUser],
   );
 
+  useEffect(() => {
+    const externalToken = (window as typeof window & { __accountexLibreChatToken?: string }).__accountexLibreChatToken;
+    if (!externalToken || token !== undefined) {
+      return;
+    }
+
+    setTokenHeader(externalToken);
+
+    import('librechat-data-provider').then(({ dataService }) => {
+      dataService.getUser().then((user) => {
+        setUserContext({
+          token: externalToken,
+          isAuthenticated: true,
+          user,
+          redirect: '/c/new',
+        });
+      }).catch(() => {
+        setTokenHeader(undefined);
+      });
+    });
+  }, [setUserContext, token]);
+
   const userQuery = useGetUserQuery({ enabled: !!(token ?? '') });
 
   const login = (data: t.TLoginUser) => {
