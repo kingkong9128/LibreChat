@@ -48,7 +48,7 @@ RUN \
     # Remove PWA service worker files as a failsafe (workbox generates files even when disabled)
     rm -f /app/client/dist/sw.js /app/client/dist/workbox-*.js /app/client/dist/precache.*.json; \
     echo "PWA files removed, verifying..."; \
-    if [ -f /app/client/dist/sw.js ] || ls /app/client/dist/workbox-*.js 1>/dev/null 2>&1; then \
+    if [ -f /app/client/dist/sw.js ] || [ -n "$(ls /app/client/dist/workbox-*.js 2>/dev/null)" ]; then \
       echo "ERROR: PWA files still present after removal!"; \
       exit 1; \
     fi; \
