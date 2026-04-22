@@ -1,0 +1,12 @@
+{
+  "$schema": "https://railway.com/railway.json",
+  "build": {
+    "builder": "DOCKERFILE"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10,
+    "startCommand": "npm run backend"
+  }
+}
