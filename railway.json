@@ -2,12 +2,12 @@
   "$schema": "https://railway.com/railway.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npm run frontend:ci && echo 'FRONTEND_BUILD_DONE' && ls -la client/dist/ 2>&1 | head -20"
+    "buildCommand": "npm run frontend:ci"
   },
   "deploy": {
     "numReplicas": 1,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
-    "startCommand": "ls -la /app/client/dist/ 2>&1 | head -20 && npm run backend"
+    "startCommand": "npm run backend"
   }
 }
