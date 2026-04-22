@@ -1,39 +1,68 @@
-# Stage 1: Build the frontend
-FROM node:20-alpine AS builder
+# v0.8.5-rc1
 
-WORKDIR /app
-USER node
+# Base node image
+FROM node:20-alpine AS node
 
-COPY package*.json ./
-COPY api/package*.json ./api/
-COPY client/package*.json ./client/
-COPY packages/*/package*.json ./packages/
-RUN npm ci --no-audit
-
-COPY . .
-
-RUN DISABLE_PWA=1 NODE_OPTIONS="--max-old-space-size=4096" npm run frontend
-
-# Stage 2: Create minimal runtime image
-FROM node:20-alpine AS runtime
-
+RUN apk upgrade --no-cache
 RUN apk add --no-cache jemalloc
+RUN apk add --no-cache python3 py3-pip uv
+
+# Set environment variable to use jemalloc
 ENV LD_PRELOAD=/usr/lib/libjemalloc.so.2
+
+# Add `uv` for extended MCP support
+COPY --from=ghcr.io/astral-sh/uv:0.9.5-python3.12-alpine /usr/local/bin/uv /usr/local/bin/uvx /bin/
+RUN uv --version
+
+# Set configurable max-old-space-size with default
+ARG NODE_MAX_OLD_SPACE_SIZE=6144
+
+RUN mkdir -p /app && chown node:node /app
 WORKDIR /app
+
 USER node
 
-COPY --from=builder /app/client/dist ./client/dist
-COPY --from=builder /app/api ./api
-COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/config ./config
-COPY --from=builder /app/client/public ./client/public
+COPY --chown=node:node package.json package-lock.json ./
+COPY --chown=node:node api/package.json ./api/package.json
+COPY --chown=node:node client/package.json ./client/package.json
+COPY --chown=node:node packages/data-provider/package.json ./packages/data-provider/package.json
+COPY --chown=node:node packages/data-schemas/package.json ./packages/data-schemas/package.json
+COPY --chown=node:node packages/api/package.json ./packages/api/package.json
 
-RUN mkdir -p /app/logs /app/uploads /app/client/public/images && \
-    npm prune --production
+RUN \
+    # Allow mounting of these files, which have no default
+    touch .env ; \
+    # Create directories for the volumes to inherit the correct permissions
+    mkdir -p /app/client/public/images /app/logs /app/uploads ; \
+    npm config set fetch-retry-maxtimeout 600000 ; \
+    npm config set fetch-retries 5 ; \
+    npm config set fetch-retry-mintimeout 15000 ; \
+    npm ci --no-audit
 
+COPY --chown=node:node . .
+
+RUN \
+    # React client build with configurable memory
+    # DISABLE_PWA=1 disables the service worker plugin (not needed for embedded iframe usage)
+    DISABLE_PWA=1 NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}" npm run frontend; \
+    # Remove PWA service worker files as a failsafe (workbox generates files even when disabled)
+    rm -f /app/client/dist/sw.js /app/client/dist/workbox-*.js /app/client/dist/precache.*.json; \
+    echo "PWA files removed, verifying..."; \
+    if [ -f /app/client/dist/sw.js ] || ls /app/client/dist/workbox-*.js 1>/dev/null 2>&1; then \
+      echo "ERROR: PWA files still present after removal!"; \
+      exit 1; \
+    fi; \
+    npm prune --production; \
+    npm cache clean --force
+
+# Node API setup
 EXPOSE 3080
 ENV HOST=0.0.0.0
-ENV NODE_ENV=production
 CMD ["npm", "run", "backend"]
+
+# Optional: for client with nginx routing
+# FROM nginx:stable-alpine AS nginx-client
+# WORKDIR /usr/share/nginx/html
+# COPY --from=node /app/client/dist /usr/share/nginx/html
+# COPY client/nginx.conf /etc/nginx/conf.d/default.conf
+# ENTRYPOINT ["nginx", "-g", "daemon off;"]
