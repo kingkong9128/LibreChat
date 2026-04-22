@@ -1,3 +1,4 @@
+# Build from node:20-alpine
 FROM node:20-alpine
 
 RUN apk add --no-cache jemalloc python3 py3-pip
