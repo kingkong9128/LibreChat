@@ -8,6 +8,18 @@ import { ApiErrorBoundaryProvider } from './hooks/ApiErrorBoundaryContext';
 import 'katex/dist/katex.min.css';
 import 'katex/dist/contrib/copy-tex.js';
 
+const __originalPostMessage = window.postMessage.bind(window);
+window.postMessage = function(data: unknown, targetOrigin?: string | Window) {
+  try {
+    __originalPostMessage(data, targetOrigin as string);
+  } catch {
+    // Silently suppress postMessage errors that occur when trying to
+    // postMessage to a cross-origin parent window. This can happen when
+    // embedded LibreChat code calls window.parent.postMessage with its own
+    // origin as the target, which fails in an iframe context.
+  }
+};
+
 const container = document.getElementById('root');
 const root = createRoot(container);
 
