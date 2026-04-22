@@ -5,7 +5,7 @@ nixpkgs = ["nodejs_20"]
 cmds = ["npm ci"]
 
 [phases.build]
-cmds = ["npm run frontend"]
+cmds = ["echo 'BUILD STARTED' && npm run frontend && echo 'BUILD COMPLETE'"]
 
 [start]
 cmd = "npm run backend"
