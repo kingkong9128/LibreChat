@@ -1,40 +1,37 @@
-# v0.8.5-rc1
-
-FROM node:20-alpine AS node
-
-RUN apk upgrade --no-cache
-RUN apk add --no-cache jemalloc python3 py3-pip
-
-ENV LD_PRELOAD=/usr/lib/libjemalloc.so.2
-ARG NODE_MAX_OLD_SPACE_SIZE=6144
+# Stage 1: Build the frontend
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 USER node
 
-COPY --chown=node:node package.json package-lock.json ./
-COPY --chown=node:node api/package.json ./api/package.json
-COPY --chown=node:node client/package.json ./client/package.json
-COPY --chown=node:node packages/data-provider/package.json ./packages/data-provider/package.json
-COPY --chown=node:node packages/data-schemas/package.json ./packages/data-schemas/package.json
-COPY --chown=node:node packages/api/package.json ./packages/api/package.json
+COPY package*.json ./
+COPY api/package*.json ./api/
+COPY client/package*.json ./client/
+COPY packages/*/package*.json ./packages/
+RUN npm ci --no-audit
 
-RUN \
-    touch .env ; \
-    mkdir -p /app/client/public/images /app/logs /app/uploads ; \
-    npm config set fetch-retry-maxtimeout 600000 ; \
-    npm config set fetch-retries 5 ; \
-    npm config set fetch-retry-mintimeout 15000 ; \
-    npm ci --no-audit
+COPY . .
 
-COPY --chown=node:node . .
+RUN DISABLE_PWA=1 NODE_OPTIONS="--max-old-space-size=4096" npm run frontend
 
-RUN DISABLE_PWA=1 NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}" npm run frontend
+# Stage 2: Create minimal runtime image
+FROM node:20-alpine AS runtime
 
-RUN rm -f /app/client/dist/sw.js /app/client/dist/workbox-*.js /app/client/dist/precache.*.json && \
-    echo "PWA files removed" && \
-    (test -f /app/client/dist/index.html && echo "Frontend dist verified: OK" || (echo "ERROR: index.html not found!"; exit 1)) && \
-    npm prune --production && \
-    npm cache clean --force
+RUN apk add --no-cache jemalloc
+ENV LD_PRELOAD=/usr/lib/libjemalloc.so.2
+WORKDIR /app
+USER node
+
+COPY --from=builder /app/client/dist ./client/dist
+COPY --from=builder /app/api ./api
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/config ./config
+COPY --from=builder /app/client/public ./client/public
+
+RUN mkdir -p /app/logs /app/uploads /app/client/public/images && \
+    npm prune --production
 
 EXPOSE 3080
 ENV HOST=0.0.0.0
