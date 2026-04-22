@@ -1,25 +1,18 @@
 # v0.8.5-rc1
 
-# Base node image
 FROM node:20-alpine AS node
 
 RUN apk upgrade --no-cache
 RUN apk add --no-cache jemalloc
-RUN apk add --no-cache python3 py3-pip uv
+RUN apk add --no-cache python3 py3-pip
 
-# Set environment variable to use jemalloc
-ENV LD_PRELOAD=/usr/lib/libjemalloc.so.2
-
-# Add `uv` for extended MCP support
 COPY --from=ghcr.io/astral-sh/uv:0.9.5-python3.12-alpine /usr/local/bin/uv /usr/local/bin/uvx /bin/
 RUN uv --version
 
-# Set configurable max-old-space-size with default
+ENV LD_PRELOAD=/usr/lib/libjemalloc.so.2
 ARG NODE_MAX_OLD_SPACE_SIZE=6144
 
-RUN mkdir -p /app && chown node:node /app
 WORKDIR /app
-
 USER node
 
 COPY --chown=node:node package.json package-lock.json ./
@@ -30,9 +23,7 @@ COPY --chown=node:node packages/data-schemas/package.json ./packages/data-schema
 COPY --chown=node:node packages/api/package.json ./packages/api/package.json
 
 RUN \
-    # Allow mounting of these files, which have no default
     touch .env ; \
-    # Create directories for the volumes to inherit the correct permissions
     mkdir -p /app/client/public/images /app/logs /app/uploads ; \
     npm config set fetch-retry-maxtimeout 600000 ; \
     npm config set fetch-retries 5 ; \
@@ -41,27 +32,15 @@ RUN \
 
 COPY --chown=node:node . .
 
-RUN \
-    # React client build with configurable memory
-    # DISABLE_PWA=1 disables the service worker plugin (not needed for embedded iframe usage)
-    DISABLE_PWA=1 NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}" npm run frontend
+RUN DISABLE_PWA=1 NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}" npm run frontend
 
-# Remove PWA service worker files - must happen AFTER the build, not before
 RUN rm -f /app/client/dist/sw.js /app/client/dist/workbox-*.js /app/client/dist/precache.*.json && \
     echo "PWA files removed" && \
-    (test -f /app/client/dist/sw.js && echo "ERROR: sw.js still present!" && exit 1 || true) && \
-    (test -n "$(ls /app/client/dist/workbox-*.js 2>/dev/null)" && echo "ERROR: workbox files still present!" && exit 1 || true) && \
+    (test -f /app/client/dist/index.html && echo "Frontend dist verified: OK" || (echo "ERROR: index.html not found!"; exit 1)) && \
     npm prune --production && \
     npm cache clean --force
 
-# Node API setup
 EXPOSE 3080
 ENV HOST=0.0.0.0
+ENV NODE_ENV=production
 CMD ["npm", "run", "backend"]
-
-# Optional: for client with nginx routing
-# FROM nginx:stable-alpine AS nginx-client
-# WORKDIR /usr/share/nginx/html
-# COPY --from=node /app/client/dist /usr/share/nginx/html
-# COPY client/nginx.conf /etc/nginx/conf.d/default.conf
-# ENTRYPOINT ["nginx", "-g", "daemon off;"]
