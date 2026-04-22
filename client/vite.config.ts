@@ -65,7 +65,7 @@ export default defineConfig(({ command }) => ({
       },
     },
     nodePolyfills(),
-    VitePWA(process.env.DISABLE_PWA ? { disabled: true } : {
+    ...(process.env.DISABLE_PWA ? [] : [VitePWA({
       injectRegister: 'auto',
       registerType: 'autoUpdate',
       devOptions: {
@@ -122,7 +122,7 @@ export default defineConfig(({ command }) => ({
           },
         ],
       },
-    }),
+    })]),
     sourcemapExclude({ excludeNodeModules: true }),
     compression({
       threshold: 10240,
