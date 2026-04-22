@@ -20,6 +20,17 @@ window.postMessage = function(data: unknown, targetOrigin?: string | Window) {
   }
 };
 
+const __originalParentPostMessage = window.parent?.postMessage?.bind(window.parent);
+if (__originalParentPostMessage) {
+  window.parent.postMessage = function(data: unknown, targetOrigin?: string | Window) {
+    try {
+      __originalParentPostMessage(data, targetOrigin as string);
+    } catch {
+      // Same as above - suppress cross-origin postMessage to parent window
+    }
+  };
+}
+
 const container = document.getElementById('root');
 const root = createRoot(container);
 

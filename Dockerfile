@@ -47,6 +47,11 @@ RUN \
     DISABLE_PWA=1 NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}" npm run frontend; \
     # Remove PWA service worker files as a failsafe (workbox generates files even when disabled)
     rm -f /app/client/dist/sw.js /app/client/dist/workbox-*.js /app/client/dist/precache.*.json; \
+    echo "PWA files removed, verifying..."; \
+    if [ -f /app/client/dist/sw.js ] || ls /app/client/dist/workbox-*.js 1>/dev/null 2>&1; then \
+      echo "ERROR: PWA files still present after removal!"; \
+      exit 1; \
+    fi; \
     npm prune --production; \
     npm cache clean --force
 
